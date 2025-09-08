@@ -1,49 +1,42 @@
+from twilio.rest import Client
 import random
-import time
-import requests
 import sys
 
-LOG_URL = None  # চাইলে server log url বসাও, না হলে None রাখো
+print("📱 Bulk OTP Sender via Twilio (Termux/PC)")
 
-def generate_otp(length=6):
-    """Random OTP তৈরি"""
-    return "".join([str(random.randint(0, 9)) for _ in range(length)])
+# 🔹 Step 1: Twilio Info Input
+account_sid = input("Enter your Twilio Account SID: ").strip()
+auth_token = input("Enter your Twilio Auth Token: ").strip()
+twilio_number = input("Enter your Twilio Phone Number (e.g. +1XXXXXXXXXX): ").strip()
 
-def format_otp_message(otp):
-    """OTP message template"""
-    return f"[MyApp] Your verification code is {otp}. It will expire in 5 minutes."
+client = Client(account_sid, auth_token)
 
-def send_otp(phone_number):
-    otp = generate_otp()
-    message = format_otp_message(otp)
-    
-    # Console এ দেখাও
-    print(f"[✔] Sent to {phone_number} → {message}")
+print("\nPaste phone numbers (one per line). When done, press Ctrl+D (Linux/Termux) or Ctrl+Z+Enter (Windows).")
 
-    # চাইলে server এ পাঠানো যাবে
-    if LOG_URL:
-        try:
-            requests.post(LOG_URL, json={
-                "phone": phone_number,
-                "otp": otp,
-                "message": message
-            })
-        except Exception as e:
-            print(f"[!] Could not log OTP: {e}")
+# 🔹 Step 2: Read Numbers from stdin
+numbers = []
+try:
+    for line in sys.stdin:
+        line = line.strip()
+        if line:
+            numbers.append(line)
+except EOFError:
+    pass
 
-    return otp, message
+print(f"\n✅ Total {len(numbers)} numbers loaded. Sending OTPs...\n")
 
-def main():
-    print("📱 Bulk OTP Sender Simulator (Termux)")
-    print("Paste phone numbers (one per line). When done, press Ctrl+D (Linux/Termux) or Ctrl+Z+Enter (Windows).")
+# 🔹 Step 3: Send OTP
+for num in numbers:
+    otp = str(random.randint(100000, 999999))
+    sms_body = f"[MyApp] Your verification code is {otp}. It will expire in 5 minutes."
 
-    # একাধিক লাইন ইনপুট নেওয়া
-    numbers_input = sys.stdin.read().strip().splitlines()
-    numbers = [n.strip() for n in numbers_input if n.strip()]
+    try:
+        message = client.messages.create(
+            body=sms_body,
+            from_=twilio_number,
+            to=num
+        )
+        print(f"[✔] Sent to {num} → OTP: {otp} (SID: {message.sid})")
+    except Exception as e:
+        print(f"[❌] Failed to send to {num}: {e}")
 
-    for number in numbers:
-        send_otp(number)
-        time.sleep(1)
-
-if __name__ == "__main__":
-    main()
